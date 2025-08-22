@@ -67,6 +67,8 @@
           <option value="dijkstra">Dijkstra</option>
           <option value="greedy">Greedy Best-First</option>
           <option value="bfs">BFS (unit weights)</option>
+          <option value="dstar">D* Lite</option>
+          <option value="lpa">LPA*</option>
         </select>
       </label>
       <label id="wWrap" class="group">
@@ -457,11 +459,25 @@
         if (grid[y][x] || (x === start.x && y === start.y)) return;
         goal = { x, y };
       }
-      // Clear previous results when user edits
-      lastPath = [];
-      lastOpen = createBoolGrid(false);
-      lastClosed = createBoolGrid(false);
-      draw();
+      // If D* Lite or LPA* is selected, replan automatically
+      const algo = algoSelect.value;
+      if (algo === "dstar") {
+        const allowDiag = diagCheckbox.checked;
+        const result = dstarLite(start, goal, allowDiag);
+        draw();
+        setStatus(`D* Lite: Path ${result.found ? "found" : "not found"}. Length: ${result.path.length} steps, cost: ${result.cost.toFixed ? result.cost.toFixed(2) : result.cost}. Explored: ${result.steps} nodes.`);
+      } else if (algo === "lpa") {
+        const allowDiag = diagCheckbox.checked;
+        const result = lpaStar(start, goal, allowDiag);
+        draw();
+        setStatus(`LPA*: Path ${result.found ? "found" : "not found"}. Length: ${result.path.length} steps, cost: ${result.cost.toFixed ? result.cost.toFixed(2) : result.cost}. Explored: ${result.steps} nodes.`);
+      } else {
+        // Clear previous results when user edits
+        lastPath = [];
+        lastOpen = createBoolGrid(false);
+        lastClosed = createBoolGrid(false);
+        draw();
+      }
     }
 
     canvas.addEventListener("pointerdown", (ev) => {
@@ -535,6 +551,10 @@
       let result;
       if (algo === "bfs") {
         result = bfs(start, goal, allowDiag);
+      } else if (algo === "dstar") {
+        result = dstarLite(start, goal, allowDiag);
+      } else if (algo === "lpa") {
+        result = lpaStar(start, goal, allowDiag);
       } else {
         result = bestFirstSearch(start, goal, allowDiag, algo, w);
       }
@@ -546,7 +566,9 @@
         wastar: `Weighted A* (w=${w.toFixed(1)})`,
         dijkstra: "Dijkstra",
         greedy: "Greedy Best-First",
-        bfs: "BFS"
+        bfs: "BFS",
+        dstar: "D* Lite",
+        lpa: "LPA*"
       }[algo];
 
       if (result.found) {
@@ -554,6 +576,203 @@
       } else {
         setStatus(`${algoName}: No path found. Explored: ${result.steps} nodes. Time: ${(t1 - t0).toFixed(2)} ms.`);
       }
+    // D* Lite implementation
+    function dstarLite(start, goal, allowDiag) {
+      // Minimal D* Lite for grid, single-shot (no incremental replanning)
+      // Reference: Koenig & Likhachev (2002)
+      lastOpen = createBoolGrid(false);
+      lastClosed = createBoolGrid(false);
+      lastPath = [];
+      // Key: [g, rhs]
+      const g = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const rhs = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const cameFrom = Array.from({ length: rows }, () => Array(cols).fill(null));
+      const open = [];
+      const inOpen = createBoolGrid(false);
+      const inClosed = createBoolGrid(false);
+      const { x: sx, y: sy } = start;
+      const { x: gx, y: gy } = goal;
+      if (!isWalkable(sx, sy) || !isWalkable(gx, gy)) return { found: false, steps: 0 };
+      rhs[gy][gx] = 0;
+      open.push({ x: gx, y: gy, k: [heuristic(sx, sy, gx, gy, allowDiag), 0] });
+      inOpen[gy][gx] = true;
+      let steps = 0;
+      function key(x, y) {
+        return [Math.min(g[y][x], rhs[y][x]) + heuristic(sx, sy, x, y, allowDiag), Math.min(g[y][x], rhs[y][x])];
+      }
+      function updateVertex(x, y) {
+        if (!(x === gx && y === gy)) {
+          let minRhs = Infinity;
+          let minFrom = null;
+          for (const nb of getNeighborsWeighted(x, y, allowDiag)) {
+            const nx = nb.x, ny = nb.y, cost = nb.cost;
+            if (g[ny][nx] + cost < minRhs) {
+              minRhs = g[ny][nx] + cost;
+              minFrom = { x: nx, y: ny };
+            }
+          }
+          rhs[y][x] = minRhs;
+          cameFrom[y][x] = minFrom;
+        }
+        if (inOpen[y][x]) {
+          for (let i = 0; i < open.length; i++) {
+            if (open[i].x === x && open[i].y === y) {
+              open.splice(i, 1);
+              break;
+            }
+          }
+          inOpen[y][x] = false;
+        }
+        if (g[y][x] !== rhs[y][x]) {
+          open.push({ x, y, k: key(x, y) });
+          inOpen[y][x] = true;
+        }
+      }
+      function popMin() {
+        let minIdx = 0;
+        let minK = open[0].k;
+        for (let i = 1; i < open.length; i++) {
+          const k = open[i].k;
+          if (k[0] < minK[0] || (k[0] === minK[0] && k[1] < minK[1])) {
+            minK = k;
+            minIdx = i;
+          }
+        }
+        const node = open[minIdx];
+        open.splice(minIdx, 1);
+        inOpen[node.y][node.x] = false;
+        return node;
+      }
+      updateVertex(sx, sy);
+      while (open.length > 0 && (g[sy][sx] !== rhs[sy][sx] || open[0].k[0] < key(sx, sy)[0] || open[0].k[1] < key(sx, sy)[1])) {
+        steps++;
+        const u = popMin();
+        lastClosed[u.y][u.x] = true;
+        if (g[u.y][u.x] > rhs[u.y][u.x]) {
+          g[u.y][u.x] = rhs[u.y][u.x];
+          for (const nb of getNeighborsWeighted(u.x, u.y, allowDiag)) {
+            updateVertex(nb.x, nb.y);
+          }
+        } else {
+          g[u.y][u.x] = Infinity;
+          updateVertex(u.x, u.y);
+          for (const nb of getNeighborsWeighted(u.x, u.y, allowDiag)) {
+            updateVertex(nb.x, nb.y);
+          }
+        }
+      }
+      // Reconstruct path from start
+      let path = [];
+      let cur = { x: sx, y: sy };
+      while (cur && !(cur.x === gx && cur.y === gy)) {
+        path.push(cur);
+        cur = cameFrom[cur.y][cur.x];
+      }
+      if (cur) path.push(cur);
+      lastPath = path;
+      lastOpen = inOpen.map(r => r.slice());
+      lastClosed = inClosed.map(r => r.slice());
+      return { found: g[sy][sx] < Infinity, path, steps, cost: g[sy][sx] };
+    }
+
+    // LPA* implementation
+    function lpaStar(start, goal, allowDiag) {
+      // Minimal LPA* for grid, single-shot (no incremental replanning)
+      // Reference: Koenig, Likhachev, Furcy (2004)
+      lastOpen = createBoolGrid(false);
+      lastClosed = createBoolGrid(false);
+      lastPath = [];
+      const g = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const rhs = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const cameFrom = Array.from({ length: rows }, () => Array(cols).fill(null));
+      const open = [];
+      const inOpen = createBoolGrid(false);
+      const inClosed = createBoolGrid(false);
+      const { x: sx, y: sy } = start;
+      const { x: gx, y: gy } = goal;
+      if (!isWalkable(sx, sy) || !isWalkable(gx, gy)) return { found: false, steps: 0 };
+      rhs[sy][sx] = 0;
+      open.push({ x: sx, y: sy, k: [heuristic(sx, sy, gx, gy, allowDiag), 0] });
+      inOpen[sy][sx] = true;
+      let steps = 0;
+      function key(x, y) {
+        return [Math.min(g[y][x], rhs[y][x]) + heuristic(x, y, gx, gy, allowDiag), Math.min(g[y][x], rhs[y][x])];
+      }
+      function updateVertex(x, y) {
+        if (!(x === sx && y === sy)) {
+          let minRhs = Infinity;
+          let minFrom = null;
+          for (const nb of getNeighborsWeighted(x, y, allowDiag)) {
+            const nx = nb.x, ny = nb.y, cost = nb.cost;
+            if (g[ny][nx] + cost < minRhs) {
+              minRhs = g[ny][nx] + cost;
+              minFrom = { x: nx, y: ny };
+            }
+          }
+          rhs[y][x] = minRhs;
+          cameFrom[y][x] = minFrom;
+        }
+        if (inOpen[y][x]) {
+          for (let i = 0; i < open.length; i++) {
+            if (open[i].x === x && open[i].y === y) {
+              open.splice(i, 1);
+              break;
+            }
+          }
+          inOpen[y][x] = false;
+        }
+        if (g[y][x] !== rhs[y][x]) {
+          open.push({ x, y, k: key(x, y) });
+          inOpen[y][x] = true;
+        }
+      }
+      function popMin() {
+        let minIdx = 0;
+        let minK = open[0].k;
+        for (let i = 1; i < open.length; i++) {
+          const k = open[i].k;
+          if (k[0] < minK[0] || (k[0] === minK[0] && k[1] < minK[1])) {
+            minK = k;
+            minIdx = i;
+          }
+        }
+        const node = open[minIdx];
+        open.splice(minIdx, 1);
+        inOpen[node.y][node.x] = false;
+        return node;
+      }
+      updateVertex(gx, gy);
+      while (open.length > 0 && (g[gy][gx] !== rhs[gy][gx] || open[0].k[0] < key(gx, gy)[0] || open[0].k[1] < key(gx, gy)[1])) {
+        steps++;
+        const u = popMin();
+        lastClosed[u.y][u.x] = true;
+        if (g[u.y][u.x] > rhs[u.y][u.x]) {
+          g[u.y][u.x] = rhs[u.y][u.x];
+          for (const nb of getNeighborsWeighted(u.x, u.y, allowDiag)) {
+            updateVertex(nb.x, nb.y);
+          }
+        } else {
+          g[u.y][u.x] = Infinity;
+          updateVertex(u.x, u.y);
+          for (const nb of getNeighborsWeighted(u.x, u.y, allowDiag)) {
+            updateVertex(nb.x, nb.y);
+          }
+        }
+      }
+      // Reconstruct path from goal
+      let path = [];
+      let cur = { x: gx, y: gy };
+      while (cur && !(cur.x === sx && cur.y === sy)) {
+        path.push(cur);
+        cur = cameFrom[cur.y][cur.x];
+      }
+      if (cur) path.push(cur);
+      path.reverse();
+      lastPath = path;
+      lastOpen = inOpen.map(r => r.slice());
+      lastClosed = inClosed.map(r => r.slice());
+      return { found: g[gy][gx] < Infinity, path, steps, cost: g[gy][gx] };
+    }
     });
 
     clearPathBtn.addEventListener("click", () => {
