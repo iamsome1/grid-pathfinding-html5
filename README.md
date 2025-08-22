@@ -11,12 +11,8 @@ A single-page, dependency-free demo of grid pathfinding on an occupancy-like gri
 All algorithms support optional diagonal motion (with octile distance heuristic and corner-cutting prevention).
 
 ## Live demo (GitHub Pages)
-
-Once GitHub Pages is enabled for this repository, your demo will be available at:
-
 - https://iamsome1.github.io/grid-pathfinding-html5/
 
-Enable Pages in: Settings → Pages → Build and deployment → Source: "Deploy from a branch"; Branch: "main" and "/ (root)". Save, then wait ~1–2 minutes.
 
 ## Run locally
 
