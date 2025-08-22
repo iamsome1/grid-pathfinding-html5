@@ -312,8 +312,14 @@
       const result = autoPlayState.next();
       if (result.done) {
         autoPlayState = null;
-        setStatus("Search finished.");
+        draw();
+        if (result.value && result.value.found) {
+          setStatus("Path found. Length: " + result.value.path.length + " steps, cost: " + (result.value.cost?.toFixed ? result.value.cost.toFixed(2) : result.value.cost) + ". Explored: " + result.value.steps + " nodes.");
+        } else {
+          setStatus("No path found. Explored: " + (result.value?.steps ?? "?") + " nodes.");
+        }
       } else {
+        draw();
         setStatus("Stepped.");
       }
     });
@@ -325,9 +331,15 @@
       if (result.done) {
         autoPlayState = null;
         autoPlayTimer = null;
-        setStatus("Auto-play finished.");
+        draw();
+        if (result.value && result.value.found) {
+          setStatus("Path found. Length: " + result.value.path.length + " steps, cost: " + (result.value.cost?.toFixed ? result.value.cost.toFixed(2) : result.value.cost) + ". Explored: " + result.value.steps + " nodes.");
+        } else {
+          setStatus("No path found. Explored: " + (result.value?.steps ?? "?") + " nodes.");
+        }
         return;
       }
+      draw();
       autoPlayTimer = setTimeout(autoPlayStep, autoPlaySpeed);
     }
 
