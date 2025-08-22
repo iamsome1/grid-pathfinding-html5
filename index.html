@@ -42,72 +42,24 @@
         </select>
       </label>
       <label id="wWrap" class="group">
-        <script type="module" src="main.js"></script>
-      const clearAround = (p) => {
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nx = p.x + dx, ny = p.y + dy;
-            if (inBounds(nx, ny)) grid[ny][nx] = false;
-          }
-        }
-      };
-      clearAround(start);
-      clearAround(goal);
-      lastPath = [];
-      lastOpen = createBoolGrid(false);
-      lastClosed = createBoolGrid(false);
-      draw();
-    }
-
-    randomizeBtn.addEventListener("click", () => {
-      const d = Number(densityInput.value) || 0;
-      randomizeWalls(d);
-      setStatus(`Randomized walls with density ${d.toFixed(2)}.`);
-    });
-
-    clearWallsBtn.addEventListener("click", () => {
-      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) grid[y][x] = false;
-      lastPath = [];
-      lastOpen = createBoolGrid(false);
-      lastClosed = createBoolGrid(false);
-      draw();
-      setStatus("Cleared all walls.");
-    });
-
-    runBtn.addEventListener("click", () => {
-      const allowDiag = diagCheckbox.checked;
-      const algo = algoSelect.value;
-      const w = Number(weightInput.value) || 1;
-      const t0 = performance.now();
-
-      let result;
-      if (algo === "bfs") {
-        result = bfs(start, goal, allowDiag);
-      } else if (algo === "dstar") {
-        result = dstarLite(start, goal, allowDiag);
-      } else if (algo === "lpa") {
-        result = lpaStar(start, goal, allowDiag);
-      } else {
-        result = bestFirstSearch(start, goal, allowDiag, algo, w);
-      }
-      const t1 = performance.now();
-      draw();
-
-      const algoName = {
-        astar: "A*",
-        wastar: `Weighted A* (w=${w.toFixed(1)})`,
-        dijkstra: "Dijkstra",
-        greedy: "Greedy Best-First",
-        bfs: "BFS",
-        dstar: "D* Lite",
-        lpa: "LPA*"
-      }[algo];
-
-      if (result.found) {
-        setStatus(`${algoName}: Path found. Length: ${result.path.length} steps, cost: ${result.cost.toFixed ? result.cost.toFixed(2) : result.cost}. Explored: ${result.steps} nodes. Time: ${(t1 - t0).toFixed(2)} ms.`);
-      } else {
-        setStatus(`${algoName}: No path found. Explored: ${result.steps} nodes. Time: ${(t1 - t0).toFixed(2)} ms.`);
-      }
+        w=
+        <input id="weight" type="range" min="1" max="5" step="0.1" value="1.5">
+        <span id="weightVal">1.5</span>
+      </label>
+      <label title="Allow diagonal movement">
+        <input type="checkbox" id="diag"> Diagonals
+      </label>
+      <button id="stepBtn">Step</button>
+      <button id="autoBtn">Run/Auto-play</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="resumeBtn">Resume</button>
+      <label title="Speed">
+        Speed:
+        <input id="speedSlider" type="range" min="50" max="1000" step="10" value="300">
+        <span id="speedVal">300ms</span>
+      </label>
+      <button id="runBtn">Run</button>
+      <button id="clearPathBtn">Clear path</button>
     // D* Lite implementation
     function dstarLite(start, goal, allowDiag) {
       // Minimal D* Lite for grid, single-shot (no incremental replanning)
