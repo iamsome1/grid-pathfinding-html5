@@ -79,7 +79,15 @@
       <label title="Allow diagonal movement">
         <input type="checkbox" id="diag"> Diagonals
       </label>
-      <button id="runBtn">Run</button>
+      <button id="stepBtn">Step</button>
+      <button id="autoBtn">Run/Auto-play</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="resumeBtn">Resume</button>
+      <label title="Speed">
+        Speed:
+        <input id="speedSlider" type="range" min="50" max="1000" step="10" value="300">
+        <span id="speedVal">300ms</span>
+      </label>
       <button id="clearPathBtn">Clear path</button>
     </div>
   </div>
@@ -129,6 +137,237 @@
     const weightInput = document.getElementById("weight");
     const weightVal = document.getElementById("weightVal");
     const statusEl = document.getElementById("status");
+    // Step/Run/Auto-play controls
+    const stepBtn = document.getElementById("stepBtn");
+    const autoBtn = document.getElementById("autoBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const speedSlider = document.getElementById("speedSlider");
+    const speedVal = document.getElementById("speedVal");
+
+    let autoPlayTimer = null;
+    let autoPlayPaused = false;
+    let autoPlayState = null;
+    let autoPlaySpeed = Number(speedSlider.value);
+
+    speedVal.textContent = `${autoPlaySpeed}ms`;
+    speedSlider.addEventListener("input", () => {
+      autoPlaySpeed = Number(speedSlider.value);
+      speedVal.textContent = `${autoPlaySpeed}ms`;
+    });
+
+    // Step/run/auto-play logic
+    function getSearchStepGenerator() {
+      // Only support A*, Dijkstra, Greedy, Weighted A*, BFS for step/run
+      const allowDiag = diagCheckbox.checked;
+      const algo = algoSelect.value;
+      const w = Number(weightInput.value) || 1;
+      if (algo === "bfs") {
+        return bfsStepGenerator(start, goal, allowDiag);
+      } else if (["astar","wastar","dijkstra","greedy"].includes(algo)) {
+        return bestFirstStepGenerator(start, goal, allowDiag, algo, w);
+      }
+      return null;
+    }
+
+    // Step generator for best-first algorithms
+    function bestFirstStepGenerator(start, goal, allowDiag, mode, weight) {
+      // ...existing code...
+      // This is a generator function for step-by-step execution
+      // Returns {done, result} on each step
+      // Copy-paste from bestFirstSearch, but yield after each step
+      // ...existing code...
+      // (Implementation below)
+      lastOpen = createBoolGrid(false);
+      lastClosed = createBoolGrid(false);
+      lastPath = [];
+      const gScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const fScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+      const cameFrom = Array.from({ length: rows }, () => Array(cols).fill(null));
+      const inOpen = createBoolGrid(false);
+      const inClosed = createBoolGrid(false);
+      const open = [];
+      const { x: sx, y: sy } = start;
+      const { x: gx, y: gy } = goal;
+      if (!isWalkable(sx, sy) || !isWalkable(gx, gy)) return null;
+      gScore[sy][sx] = 0;
+      const h0 = heuristic(sx, sy, gx, gy, allowDiag);
+      fScore[sy][sx] = scoreF(0, h0, mode, weight);
+      open.push({ x: sx, y: sy });
+      inOpen[sy][sx] = true;
+      lastOpen[sy][sx] = true;
+      let steps = 0;
+      let finished = false;
+      return {
+        next: function() {
+          if (finished) return { done: true };
+          if (open.length === 0) {
+            lastOpen = inOpen.map(r => r.slice());
+            lastClosed = inClosed.map(r => r.slice());
+            lastPath = [];
+            finished = true;
+            return { done: true, value: { found: false, steps } };
+          }
+          steps++;
+          let bestIdx = 0;
+          let bestF = fScore[open[0].y][open[0].x];
+          for (let i = 1; i < open.length; i++) {
+            const n = open[i];
+            const f = fScore[n.y][n.x];
+            if (f < bestF) { bestF = f; bestIdx = i; }
+          }
+          const current = open[bestIdx];
+          const { x: cx, y: cy } = current;
+          if (cx === gx && cy === gy) {
+            const path = reconstructPath(cameFrom, cx, cy);
+            lastPath = path;
+            lastOpen = inOpen.map(r => r.slice());
+            lastClosed = inClosed.map(r => r.slice());
+            finished = true;
+            return { done: true, value: { found: true, path, steps, cost: gScore[cy][cx] } };
+          }
+          open.splice(bestIdx, 1);
+          inOpen[cy][cx] = false;
+          inClosed[cy][cx] = true;
+          lastClosed[cy][cx] = true;
+          const neighbors = getNeighborsWeighted(cx, cy, allowDiag);
+          for (const nb of neighbors) {
+            const nx = nb.x, ny = nb.y, moveCost = nb.cost;
+            if (inClosed[ny][nx]) continue;
+            const tentativeG = gScore[cy][cx] + moveCost;
+            if (!inOpen[ny][nx]) {
+              open.push({ x: nx, y: ny });
+              inOpen[ny][nx] = true;
+              lastOpen[ny][nx] = true;
+            } else if (tentativeG >= gScore[ny][nx]) {
+              if (mode !== "greedy") continue;
+            }
+            cameFrom[ny][nx] = { x: cx, y: cy };
+            gScore[ny][nx] = tentativeG;
+            const h = heuristic(nx, ny, gx, gy, allowDiag);
+            fScore[ny][nx] = scoreF(tentativeG, h, mode, weight);
+          }
+          draw();
+          return { done: false };
+        }
+      };
+    }
+
+    // Step generator for BFS
+    function bfsStepGenerator(start, goal, allowDiag) {
+      lastOpen = createBoolGrid(false);
+      lastClosed = createBoolGrid(false);
+      lastPath = [];
+      const visited = createBoolGrid(false);
+      const cameFrom = Array.from({ length: rows }, () => Array(cols).fill(null));
+      const q = [];
+      let head = 0;
+      const { x: sx, y: sy } = start;
+      const { x: gx, y: gy } = goal;
+      if (!isWalkable(sx, sy) || !isWalkable(gx, gy)) return null;
+      q.push({ x: sx, y: sy });
+      visited[sy][sx] = true;
+      lastOpen[sy][sx] = true;
+      let steps = 0;
+      let finished = false;
+      return {
+        next: function() {
+          if (finished) return { done: true };
+          if (head >= q.length) {
+            lastPath = [];
+            finished = true;
+            return { done: true, value: { found: false, steps } };
+          }
+          steps++;
+          const cur = q[head++];
+          const cx = cur.x, cy = cur.y;
+          lastClosed[cy][cx] = true;
+          if (cx === gx && cy === gy) {
+            const path = reconstructPath(cameFrom, cx, cy);
+            lastPath = path;
+            finished = true;
+            return { done: true, value: { found: true, path, steps, cost: path.length > 0 ? path.length - 1 : 0 } };
+          }
+          for (const nb of getNeighborsUnit(cx, cy, allowDiag)) {
+            const nx = nb.x, ny = nb.y;
+            if (visited[ny][nx]) continue;
+            visited[ny][nx] = true;
+            cameFrom[ny][nx] = { x: cx, y: cy };
+            q.push({ x: nx, y: ny });
+            lastOpen[ny][nx] = true;
+          }
+          draw();
+          return { done: false };
+        }
+      };
+    }
+
+    // Step button
+    stepBtn.addEventListener("click", () => {
+      if (!autoPlayState) autoPlayState = getSearchStepGenerator();
+      if (!autoPlayState) {
+        setStatus("Step-by-step not supported for this algorithm.");
+        return;
+      }
+      const result = autoPlayState.next();
+      if (result.done) {
+        autoPlayState = null;
+        setStatus("Search finished.");
+      } else {
+        setStatus("Stepped.");
+      }
+    });
+
+    // Auto-play logic
+    function autoPlayStep() {
+      if (autoPlayPaused || !autoPlayState) return;
+      const result = autoPlayState.next();
+      if (result.done) {
+        autoPlayState = null;
+        autoPlayTimer = null;
+        setStatus("Auto-play finished.");
+        return;
+      }
+      autoPlayTimer = setTimeout(autoPlayStep, autoPlaySpeed);
+    }
+
+    autoBtn.addEventListener("click", () => {
+      if (!autoPlayState) autoPlayState = getSearchStepGenerator();
+      if (!autoPlayState) {
+        setStatus("Auto-play not supported for this algorithm.");
+        return;
+      }
+      autoPlayPaused = false;
+      if (!autoPlayTimer) autoPlayStep();
+      setStatus("Auto-play started.");
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      autoPlayPaused = true;
+      if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+      setStatus("Paused.");
+    });
+
+    resumeBtn.addEventListener("click", () => {
+      if (autoPlayState && autoPlayPaused) {
+        autoPlayPaused = false;
+        autoPlayStep();
+        setStatus("Resumed.");
+      }
+    });
+
+    // Reset step/auto-play state when grid changes
+    function resetAutoPlay() {
+      autoPlayState = null;
+      autoPlayPaused = false;
+      if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+    }
 
     // State
     let tool = "wall";
