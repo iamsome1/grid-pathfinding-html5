@@ -70,7 +70,9 @@ draw(canvas, ctx, grid, lastOpen, lastClosed, lastPath, start, goal, cellSize, c
 
 function randomizeWalls(density = 0.28) {
 	for (let y = 0; y < rows; y++) {
-		for (let x = 0; x < cols; x++) grid[y][x] = Math.random() < density;
+		for (let x = 0; x < cols; x++) {
+			grid[y][x] = Math.random() < density ? true : false;
+		}
 	}
 	// Ensure start/goal are open and clear around them
 	const clearAround = (p) => {
@@ -137,6 +139,8 @@ diagCheckbox.addEventListener("change", () => {
 });
 
 // Initial state
-randomizeWalls(Number(densityInput.value));
-draw(canvas, ctx, grid, lastOpen, lastClosed, lastPath, start, goal, cellSize, cols, rows);
-setStatus("Draw or randomize walls, place Start/Goal, pick an algorithm, then press Run.");
+window.addEventListener('DOMContentLoaded', () => {
+	randomizeWalls(Number(densityInput.value));
+	draw(canvas, ctx, grid, lastOpen, lastClosed, lastPath, start, goal, cellSize, cols, rows);
+	setStatus("Draw or randomize walls, place Start/Goal, pick an algorithm, then press Run.");
+});
