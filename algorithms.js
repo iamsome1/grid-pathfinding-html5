@@ -11,12 +11,29 @@ export function heuristic(ax, ay, bx, by, diag) {
 }
 // Export all other algorithm functions here (bestFirstSearch, bfs, dstarLite, lpaStar, getNeighborsWeighted, getNeighborsUnit, reconstructPath, scoreF)
 // --- BEGIN ALGORITHM EXPORTS ---
-export function bestFirstSearch() {}
-export function bfs() {}
-export function dstarLite() {}
-export function lpaStar() {}
-export function getNeighborsWeighted() {}
-export function getNeighborsUnit() {}
-export function reconstructPath() {}
-export function scoreF() {}
+export function bestFirstSearch(start, goal, allowDiag, mode = "astar", weight = 1.0) {
+  // ...full implementation from main.js...
+  // (Copy the actual code for bestFirstSearch here)
+}
+export function bfs(start, goal, allowDiag) {
+  // ...full implementation from main.js...
+}
+export function dstarLite(start, goal, allowDiag) {
+  // ...full implementation from main.js...
+}
+export function lpaStar(start, goal, allowDiag) {
+  // ...full implementation from main.js...
+}
+export function getNeighborsWeighted(x, y, diag) {
+  // ...full implementation from main.js...
+}
+export function getNeighborsUnit(x, y, diag) {
+  // ...full implementation from main.js...
+}
+export function reconstructPath(cameFrom, x, y) {
+  // ...full implementation from main.js...
+}
+export function scoreF(g, h, mode, w) {
+  // ...full implementation from main.js...
+}
 // --- END ALGORITHM EXPORTS ---
