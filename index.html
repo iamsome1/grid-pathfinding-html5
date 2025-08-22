@@ -312,6 +312,9 @@
       const result = autoPlayState.next();
       if (result.done) {
         autoPlayState = null;
+        if (result.value && result.value.path) {
+          lastPath = result.value.path;
+        }
         draw();
         if (result.value && result.value.found) {
           setStatus("Path found. Length: " + result.value.path.length + " steps, cost: " + (result.value.cost?.toFixed ? result.value.cost.toFixed(2) : result.value.cost) + ". Explored: " + result.value.steps + " nodes.");
@@ -331,6 +334,9 @@
       if (result.done) {
         autoPlayState = null;
         autoPlayTimer = null;
+        if (result.value && result.value.path) {
+          lastPath = result.value.path;
+        }
         draw();
         if (result.value && result.value.found) {
           setStatus("Path found. Length: " + result.value.path.length + " steps, cost: " + (result.value.cost?.toFixed ? result.value.cost.toFixed(2) : result.value.cost) + ". Explored: " + result.value.steps + " nodes.");
