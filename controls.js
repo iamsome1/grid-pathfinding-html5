@@ -1,0 +1,3 @@
+// UI controls and step/auto-play logic
+// Export functions for event listeners, step/auto-play logic, status updates
+// ...move relevant code from main.js here and export as needed...

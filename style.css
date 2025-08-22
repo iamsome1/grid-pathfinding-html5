@@ -1,0 +1,30 @@
+/* Extracted from index.html <style> */
+:root { color-scheme: light dark; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  margin: 0; padding: 16px; display: grid; gap: 8px; background: Canvas; color: CanvasText;
+}
+h1 { margin: 0 0 8px 0; font-size: 18px; }
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px;
+  border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas 80%); border-radius: 8px;
+}
+.group { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.group label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; white-space: nowrap; }
+.group legend { font-weight: 600; }
+button {
+  padding: 8px 12px; border-radius: 8px;
+  border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas 80%);
+  background: color-mix(in oklab, Canvas 85%, CanvasText 15%);
+  color: CanvasText; cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+select, input[type="range"] { accent-color: currentColor; }
+#status { min-height: 1.2em; font-size: 14px; opacity: 0.9; }
+.canvas-wrap {
+  overflow: auto; border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas 80%); border-radius: 8px; max-width: 100%;
+}
+canvas { display: block; background: #fff; touch-action: none; }
+.hint { font-size: 12px; opacity: 0.8; line-height: 1.4; }
+.spacer { flex: 1; }
+.hidden { display: none !important; }
